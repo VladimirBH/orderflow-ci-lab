@@ -1,7 +1,6 @@
 """High-level order acceptance and stock reservation."""
 from dataclasses import dataclass, field
 from .promotions import apply_promotions, calculate_service_fee
-from .shipping import delivery_estimate
 
 @dataclass
 class Line:

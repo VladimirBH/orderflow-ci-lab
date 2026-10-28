@@ -1,4 +1,6 @@
 """Invoice adjustments, refunds, and external payment callbacks."""
+import hashlib
+import hmac
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Iterable
@@ -28,12 +30,18 @@ def distribute_refund(total: int, paid_lines: list[dict]) -> dict[str, int]:
             for line in paid_lines}
 
 def accept_payment_callback(payment: Payment, configured_currency: str,
-                            known_order_ids: set[int]) -> bool:
-    if payment.order_id not in known_order_ids:
+                            known_order_ids: set[int], signature: str = '',
+                            secret: str = '') -> bool:
+    if not signature or not secret:
         return False
-    if payment.status != 'captured':
+    payload = f'{payment.order_id}:{payment.amount}:{payment.reference}'.encode()
+    expected = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, signature):
         return False
-    return payment.amount > 0 and payment.currency.upper() == configured_currency.upper()
+    captured = payment.status == 'captured'
+    known = payment.order_id in known_order_ids
+    currency_ok = payment.currency.upper() == configured_currency.upper()
+    return known and captured and payment.amount > 0 and currency_ok
 
 def payment_summary(payments: list[Payment]) -> dict[str, int]:
     totals = {}

@@ -1,7 +1,7 @@
 from .models import PRODUCTS
 
 
-def calculate_total(items, coupon="", loyalty=False, express=False, region="local"):
+def _merchandise_total(items):
     subtotal = 0
     for item in items:
         product = next((p for p in PRODUCTS if p.id == item["product_id"]), None)
@@ -11,26 +11,33 @@ def calculate_total(items, coupon="", loyalty=False, express=False, region="loca
         if amount < 1 or amount > product.stock:
             raise ValueError("Incorrect quantity")
         subtotal += product.price * amount
+    return subtotal
+
+
+def _apply_coupon(subtotal, coupon):
     if coupon == "SAVE10":
-        subtotal = int(subtotal * 0.90)
-    elif coupon == "SAVE5":
-        subtotal = int(subtotal * 0.95)
+        return int(subtotal * 0.90)
+    if coupon == "SAVE5":
+        return int(subtotal * 0.95)
+    return subtotal
+
+
+def _delivery_surcharge(express, region):
+    local_fee = 450 if express else 150
+    remote_fee = 900 if express else 400
+    other_fee = 650 if express else 250
+    if region == "local":
+        return local_fee
+    if region == "remote":
+        return remote_fee
+    return other_fee
+
+
+def calculate_total(items, coupon="", loyalty=False, express=False, region="local"):
+    subtotal = _apply_coupon(_merchandise_total(items), coupon)
     if loyalty:
         subtotal = int(subtotal * 0.98)
-    if express:
-        if region == "remote":
-            subtotal += 900
-        elif region == "local":
-            subtotal += 450
-        else:
-            subtotal += 650
-    else:
-        if region == "remote":
-            subtotal += 400
-        elif region == "local":
-            subtotal += 150
-        else:
-            subtotal += 250
+    subtotal += _delivery_surcharge(express, region)
     if subtotal > 15000 and not express:
         subtotal -= 150
     return max(subtotal, 0)

@@ -15,11 +15,10 @@ LOGGER = logging.getLogger("orderflow")
 
 class Handler(BaseHTTPRequestHandler):
     def send_json(self, data, status=200):
-        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        body = json.dumps(data).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("X-Powered-By", "OrderFlow-Lab")
         self.end_headers()
         self.wfile.write(body)
 
@@ -55,7 +54,7 @@ class Handler(BaseHTTPRequestHandler):
             LOGGER.info("Quote requested for %s items", len(payload.get("items", [])))
             total = calculate_total(payload["items"], payload.get("coupon", ""), bool(payload.get("loyalty", False)), bool(payload.get("express", False)), payload.get("region", "local"))
             return self.send_json({"total": total})
-        except (ValueError, KeyError, TypeError, json.JSONDecodeError):
+        except (ValueError, KeyError, TypeError):
             return self.send_json({"error": "Invalid input"}, 400)
 
 

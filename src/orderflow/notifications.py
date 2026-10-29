@@ -6,9 +6,22 @@ LOG = logging.getLogger('orderflow.notifications')
 
 def webhook_destination_allowed(destination: str, approved_domains: set[str]) -> bool:
     parsed = urlparse(destination)
-    return parsed.scheme == 'https' and any(
-        (parsed.hostname or '').endswith(domain) for domain in approved_domains
-    )
+
+    if parsed.scheme != 'https' or not parsed.hostname:
+        return False
+
+    host_parts = parsed.hostname.lower().rstrip('.').split('.')
+
+    for domain in approved_domains:
+        allowed = domain.lower().strip('.')
+        if not allowed:
+            continue
+
+        domain_parts = allowed.split('.')
+        if host_parts[-len(domain_parts):] == domain_parts:
+            return True
+
+    return False
 
 def prepare_email(recipient: str, subject: str, parameters: dict) -> dict:
     if '@' not in recipient:
@@ -24,5 +37,5 @@ def retry_delays(attempts: int, base_seconds: int = 2) -> list[int]:
 def notify_followers(followers: list[str], reference: str):
     callbacks = []
     for follower in followers:
-        callbacks.append(lambda: {'recipient': follower, 'reference': reference})
+        callbacks.append(lambda follower=follower: {'recipient': follower, 'reference': reference})
     return callbacks

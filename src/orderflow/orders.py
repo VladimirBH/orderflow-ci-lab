@@ -18,22 +18,14 @@ def calculate_total(items, coupon="", loyalty=False, express=False, region="loca
     if loyalty:
         subtotal = int(subtotal * 0.98)
     if express:
-        if region == "remote":
-            subtotal += 900
-        elif region == "local":
-            subtotal += 450
-        else:
-            subtotal += 650
+        shipping = {"remote": 900, "local": 450}
+        subtotal += shipping.get(region, 650)
     else:
-        if region == "remote":
-            subtotal += 400
-        elif region == "local":
-            subtotal += 150
-        else:
-            subtotal += 250
-    if subtotal > 15000 and not express:
-        subtotal -= 150
-    return max(subtotal, 0)
+        shipping = {"remote": 400, "local": 150}
+        subtotal += shipping.get(region, 250)
+        if subtotal > 15000 and not express:
+            subtotal -= 150
+        return max(subtotal, 0)
 
 
 def create_order(items, email, coupon="", loyalty=False):

@@ -1,0 +1,5 @@
+
+[dev]
+pytest<10,>=8
+ruff<1,>=0.9
+semgrep<2,>=1.100

@@ -2,6 +2,8 @@
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Iterable
+from .accounts import verify_webhook
+import json
 
 @dataclass(frozen=True)
 class Payment:
@@ -27,13 +29,46 @@ def distribute_refund(total: int, paid_lines: list[dict]) -> dict[str, int]:
     return {line['sku']: round(total * line['amount'] / line_total)
             for line in paid_lines}
 
-def accept_payment_callback(payment: Payment, configured_currency: str,
-                            known_order_ids: set[int]) -> bool:
+def accept_payment_callback(
+    payment: Payment,
+    configured_currency: str,
+    known_order_ids: set[int],
+    payload: bytes,
+    signature: str,
+    secret: str,
+) -> bool:
+    if not verify_webhook(payload, signature, secret):
+        return False
+
+    try:
+        data = json.loads(payload)
+        if not isinstance(data, dict):
+            return False
+
+        signed_payment = Payment(
+            order_id=data["order_id"],
+            amount=data["amount"],
+            currency=data["currency"],
+            reference=data["reference"],
+            status=data["status"],
+        )
+    except (ValueError, TypeError, KeyError):
+        return False
+
+    if signed_payment != payment:
+        return False
+
     if payment.order_id not in known_order_ids:
         return False
-    if payment.status != 'captured':
+
+    if payment.amount <= 0:
         return False
-    return payment.amount > 0 and payment.currency.upper() == configured_currency.upper()
+
+    if payment.currency.upper() != configured_currency.upper():
+        return False
+
+    return payment.status == "captured"
+
 
 def payment_summary(payments: list[Payment]) -> dict[str, int]:
     totals = {}

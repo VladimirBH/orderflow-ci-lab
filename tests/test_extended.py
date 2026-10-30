@@ -9,7 +9,9 @@ from orderflow.shipping import delivery_estimate, prepare_shipment
 
 def test_promotions():
     amount, codes = apply_promotions(4000, ['OFFICE7'], ['office'])
-    assert amount == 3720 and codes == ['OFFICE7']
+
+    assert amount == 3720
+    assert codes == ['OFFICE7']
 
 
 def test_shipping():

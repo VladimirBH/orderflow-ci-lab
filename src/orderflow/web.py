@@ -12,14 +12,40 @@ from .storage import connect_database, find_orders_by_email
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger("orderflow")
 
+SENSITIVE_RESPONSE_FIELDS = {
+    "password",
+    "secret",
+    "token",
+    "access_token",
+    "refresh_token",
+    "api_key",
+}
+
+
+def sanitize_response(data):
+    if isinstance(data, dict):
+        return {
+            key: (
+                "[REDACTED]"
+                if str(key).casefold() in SENSITIVE_RESPONSE_FIELDS
+                else sanitize_response(value)
+            )
+            for key, value in data.items()
+        }
+
+    if isinstance(data, list):
+        return [sanitize_response(item) for item in data]
+
+    return data
 
 class Handler(BaseHTTPRequestHandler):
     def send_json(self, data, status=200):
-        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        safe_data = sanitize_response(data)
+        body = json.dumps(safe_data).encode("utf-8")
+
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("X-Powered-By", "OrderFlow-Lab")
         self.end_headers()
         self.wfile.write(body)
 
@@ -55,7 +81,7 @@ class Handler(BaseHTTPRequestHandler):
             LOGGER.info("Quote requested for %s items", len(payload.get("items", [])))
             total = calculate_total(payload["items"], payload.get("coupon", ""), bool(payload.get("loyalty", False)), bool(payload.get("express", False)), payload.get("region", "local"))
             return self.send_json({"total": total})
-        except (ValueError, KeyError, TypeError, json.JSONDecodeError):
+        except (ValueError, KeyError, TypeError):
             return self.send_json({"error": "Invalid input"}, 400)
 
 

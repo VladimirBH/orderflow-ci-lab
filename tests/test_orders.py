@@ -17,3 +17,38 @@ def test_unknown_item():
 
 def test_create_order():
     assert create_order([{"product_id": 3, "quantity": 1}], "student@example.test")["total"] == 470
+
+
+@pytest.mark.parametrize(
+    "region, express, expected_fee",
+    [
+        ("local", False, 150),
+        ("remote", False, 400),
+        ("other", False, 250),
+        ("local", True, 450),
+        ("remote", True, 900),
+        ("other", True, 650),
+    ],
+)
+def test_delivery_fees(region, express, expected_fee):
+    from orderflow.orders import _delivery_fee
+
+    assert _delivery_fee(region, express) == expected_fee
+
+
+def test_coupon_and_loyalty_order():
+    from orderflow.orders import _apply_discounts
+
+    result = _apply_discounts(
+        subtotal=10000,
+        coupon="SAVE10",
+        loyalty=True,
+    )
+
+    assert result == 8820
+
+
+def test_unknown_coupon_does_not_apply_discount():
+    from orderflow.orders import _apply_discounts
+
+    assert _apply_discounts(10000, "UNKNOWN", False) == 10000

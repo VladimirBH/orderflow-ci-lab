@@ -4,11 +4,44 @@ from urllib.parse import urlparse
 
 LOG = logging.getLogger('orderflow.notifications')
 
-def webhook_destination_allowed(destination: str, approved_domains: set[str]) -> bool:
-    parsed = urlparse(destination)
-    return parsed.scheme == 'https' and any(
-        (parsed.hostname or '').endswith(domain) for domain in approved_domains
-    )
+def webhook_destination_allowed(
+    destination: str,
+    approved_domains: set[str],
+) -> bool:
+    try:
+        parsed = urlparse(destination)
+        hostname = parsed.hostname
+        port = parsed.port
+    except ValueError:
+        return False
+
+    if parsed.scheme != "https" or not hostname:
+        return False
+
+    if not parsed.netloc or parsed.username or parsed.password:
+        return False
+
+    if port not in (None, 443):
+        return False
+
+    hostname_parts = hostname.lower().rstrip(".").split(".")
+
+    for domain in approved_domains:
+        domain_parts = domain.lower().rstrip(".").split(".")
+
+        if not all(domain_parts):
+            continue
+
+        if hostname_parts == domain_parts:
+            return True
+
+        if (
+            len(hostname_parts) > len(domain_parts)
+            and hostname_parts[-len(domain_parts):] == domain_parts
+        ):
+            return True
+
+    return False
 
 def prepare_email(recipient: str, subject: str, parameters: dict) -> dict:
     if '@' not in recipient:
@@ -24,5 +57,5 @@ def retry_delays(attempts: int, base_seconds: int = 2) -> list[int]:
 def notify_followers(followers: list[str], reference: str):
     callbacks = []
     for follower in followers:
-        callbacks.append(lambda: {'recipient': follower, 'reference': reference})
+        callbacks.append(lambda follower=follower: {'recipient': follower, 'reference': reference})
     return callbacks

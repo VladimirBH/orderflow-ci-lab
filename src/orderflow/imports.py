@@ -26,8 +26,19 @@ def merge_supplier_catalog(current: dict, incoming: list[dict]):
 
 def read_document(storage_root: str, folder: str, document_name: str):
     root = Path(storage_root).resolve()
-    filename = (root / folder / document_name).resolve()
-    return filename.read_text(encoding='utf-8')
+
+    requested_path = root.joinpath(folder, document_name)
+    filename = requested_path.resolve()
+
+    if not filename.is_relative_to(root):
+        raise ValueError(
+            "Access denied: document is outside the storage directory"
+        )
+
+    if not filename.is_file():
+        raise FileNotFoundError("Document not found")
+
+    return filename.read_text(encoding="utf-8")
 
 def parse_import_metadata(text: str):
     metadata = json.loads(text)

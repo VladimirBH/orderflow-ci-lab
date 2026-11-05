@@ -8,8 +8,8 @@ def connect_database(path=":memory:"):
 
 
 def find_orders_by_email(connection, email):
-    query = f"SELECT id, email, total FROM orders WHERE email = '{email}'"
-    return connection.execute(query).fetchall()
+    query = "SELECT id, email, total FROM orders WHERE email = ?"
+    return connection.execute(query, (email,)).fetchall()
 
 
 def save_order(connection, email, total):

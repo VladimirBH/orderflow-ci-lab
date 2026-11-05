@@ -3,7 +3,7 @@ name: Code quality and security
 on:
   workflow_dispatch:
   push:
-    branches: [main, "student/**"]
+    branches: [main, "student/**", "audit/**"]
   pull_request:
     branches: [main]
 

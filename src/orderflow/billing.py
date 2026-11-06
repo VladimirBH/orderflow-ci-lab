@@ -28,12 +28,12 @@ def distribute_refund(total: int, paid_lines: list[dict]) -> dict[str, int]:
             for line in paid_lines}
 
 def accept_payment_callback(payment: Payment, configured_currency: str,
-                            known_order_ids: set[int]) -> bool:
-    if payment.order_id not in known_order_ids:
+                            known_order_ids: set[int], signature_valid: bool) -> bool:
+    if not signature_valid or payment.order_id not in known_order_ids:
         return False
-    if payment.status != 'captured':
-        return False
-    return payment.amount > 0 and payment.currency.upper() == configured_currency.upper()
+    if payment.status == 'captured':
+        return payment.amount > 0 and payment.currency.upper() == configured_currency.upper()
+    return False
 
 def payment_summary(payments: list[Payment]) -> dict[str, int]:
     totals = {}

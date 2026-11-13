@@ -11,15 +11,16 @@ from .storage import connect_database, find_orders_by_email
 
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger("orderflow")
+ERROR_KEY = "error"
+UNKNOWN_RESOURCE = "Unknown resource"
 
 
 class Handler(BaseHTTPRequestHandler):
     def send_json(self, data, status=200):
-        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        body = json.dumps(data).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("X-Powered-By", "OrderFlow-Lab")
         self.end_headers()
         self.wfile.write(body)
 
@@ -42,26 +43,30 @@ class Handler(BaseHTTPRequestHandler):
                 try:
                     found = find_orders_by_email(connection, email)
                 except sqlite3.DatabaseError:
-                    return self.send_json({"error": "Invalid search"}, 400)
+                    return self.send_json({ERROR_KEY: "Invalid search"}, 400)
             return self.send_json({"orders": found})
-        return self.send_json({"error": "Unknown resource"}, 404)
+        return self.send_json({ERROR_KEY: UNKNOWN_RESOURCE}, 404)
 
     def do_POST(self):
         if urlparse(self.path).path != "/api/quote":
-            return self.send_json({"error": "Unknown resource"}, 404)
+            return self.send_json({ERROR_KEY: UNKNOWN_RESOURCE}, 404)
         try:
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length))
             LOGGER.info("Quote requested for %s items", len(payload.get("items", [])))
             total = calculate_total(payload["items"], payload.get("coupon", ""), bool(payload.get("loyalty", False)), bool(payload.get("express", False)), payload.get("region", "local"))
             return self.send_json({"total": total})
-        except (ValueError, KeyError, TypeError, json.JSONDecodeError):
-            return self.send_json({"error": "Invalid input"}, 400)
+        except (ValueError, KeyError, TypeError):  # JSONDecodeError is a ValueError
+            return self.send_json({ERROR_KEY: "Invalid input"}, 400)
+
+
+LISTEN_HOST = "127.0.0.1"
+LISTEN_PORT = 8765
 
 
 def main():
-    server = ThreadingHTTPServer(("127.0.0.1", 8765), Handler)
-    print("OrderFlow API: http://127.0.0.1:8765/health")
+    server = ThreadingHTTPServer((LISTEN_HOST, LISTEN_PORT), Handler)
+    print(f"OrderFlow API listening on {LISTEN_HOST}:{LISTEN_PORT} (health check: GET /health)")
     server.serve_forever()
 
 

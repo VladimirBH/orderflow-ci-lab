@@ -22,10 +22,15 @@ def account_view(account: Account):
     return {'user_id': account.user_id, 'email': account.email,
             'role': account.role, 'active': account.active}
 
+EDITABLE_PREFERENCES = frozenset({'preferred_currency'})
+
+
 def update_preferences(account: Account, changes: dict):
-    for key, value in changes.items():
-        if hasattr(account, key):
-            setattr(account, key, value)
+    forbidden = set(changes) - EDITABLE_PREFERENCES
+    if forbidden:
+        raise PermissionError('Fields are not editable: ' + ', '.join(sorted(forbidden)))
+    for field_name in EDITABLE_PREFERENCES.intersection(changes):
+        setattr(account, field_name, changes[field_name])
     return account_view(account)
 
 def verify_webhook(payload: bytes, signature: str, secret: str):
@@ -34,4 +39,6 @@ def verify_webhook(payload: bytes, signature: str, secret: str):
 
 
 def verify_api_key(candidate: str, configured: str) -> bool:
-    return candidate.strip() == configured.strip()
+    if not candidate or not configured:
+        return False
+    return hmac.compare_digest(candidate.encode('utf-8'), configured.encode('utf-8'))

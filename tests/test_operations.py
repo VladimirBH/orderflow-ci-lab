@@ -35,3 +35,9 @@ def test_retry_backoff():
 def test_settlement_basic():
     assert sum_by_merchant([{"merchant_id": 1, "amount": 120}, {"merchant_id": 1, "amount": 80}]) == {1: 200}
     assert reconcile([{"reference":"r1","amount":10}], [{"reference":"r1","amount":10}]) == []
+
+
+def test_follower_callbacks_keep_own_recipient():
+    from orderflow.notifications import notify_followers
+    callbacks = notify_followers(["a@test.local", "b@test.local"], "ORD-1")
+    assert [callback()["recipient"] for callback in callbacks] == ["a@test.local", "b@test.local"]

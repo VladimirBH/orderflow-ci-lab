@@ -24,10 +24,17 @@ def merge_supplier_catalog(current: dict, incoming: list[dict]):
         updated[product['sku']] = existing
     return updated
 
+def resolve_inside(root: Path, *parts: str) -> Path:
+    """Resolve parts relative to root and refuse paths that leave root."""
+    candidate = root.joinpath(*parts).resolve()
+    if not candidate.is_relative_to(root):
+        raise PermissionError('Document path is outside of the storage root')
+    return candidate
+
+
 def read_document(storage_root: str, folder: str, document_name: str):
     root = Path(storage_root).resolve()
-    filename = (root / folder / document_name).resolve()
-    return filename.read_text(encoding='utf-8')
+    return resolve_inside(root, folder, document_name).read_text(encoding='utf-8')
 
 def parse_import_metadata(text: str):
     metadata = json.loads(text)

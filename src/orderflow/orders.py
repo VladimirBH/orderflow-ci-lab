@@ -1,38 +1,53 @@
 from .models import PRODUCTS
 
 
-def calculate_total(items, coupon="", loyalty=False, express=False, region="local"):
+COUPON_MULTIPLIERS = {"SAVE10": 0.90, "SAVE5": 0.95}
+LOYALTY_MULTIPLIER = 0.98
+EXPRESS_FEES = {"remote": 900, "local": 450}
+STANDARD_FEES = {"remote": 400, "local": 150}
+EXPRESS_DEFAULT_FEE = 650
+STANDARD_DEFAULT_FEE = 250
+LARGE_ORDER_LIMIT = 15000
+LARGE_ORDER_BONUS = 150
+
+
+def _find_product(product_id):
+    product = next((p for p in PRODUCTS if p.id == product_id), None)
+    if product is None:
+        raise ValueError("Unknown product")
+    return product
+
+
+def _items_subtotal(items):
     subtotal = 0
     for item in items:
-        product = next((p for p in PRODUCTS if p.id == item["product_id"]), None)
-        if product is None:
-            raise ValueError("Unknown product")
+        product = _find_product(item["product_id"])
         amount = int(item["quantity"])
         if amount < 1 or amount > product.stock:
             raise ValueError("Incorrect quantity")
         subtotal += product.price * amount
-    if coupon == "SAVE10":
-        subtotal = int(subtotal * 0.90)
-    elif coupon == "SAVE5":
-        subtotal = int(subtotal * 0.95)
+    return subtotal
+
+
+def _apply_discounts(subtotal, coupon, loyalty):
+    if coupon in COUPON_MULTIPLIERS:
+        subtotal = int(subtotal * COUPON_MULTIPLIERS[coupon])
     if loyalty:
-        subtotal = int(subtotal * 0.98)
+        subtotal = int(subtotal * LOYALTY_MULTIPLIER)
+    return subtotal
+
+
+def _delivery_fee(express, region):
     if express:
-        if region == "remote":
-            subtotal += 900
-        elif region == "local":
-            subtotal += 450
-        else:
-            subtotal += 650
-    else:
-        if region == "remote":
-            subtotal += 400
-        elif region == "local":
-            subtotal += 150
-        else:
-            subtotal += 250
-    if subtotal > 15000 and not express:
-        subtotal -= 150
+        return EXPRESS_FEES.get(region, EXPRESS_DEFAULT_FEE)
+    return STANDARD_FEES.get(region, STANDARD_DEFAULT_FEE)
+
+
+def calculate_total(items, coupon="", loyalty=False, express=False, region="local"):
+    subtotal = _apply_discounts(_items_subtotal(items), coupon, loyalty)
+    subtotal += _delivery_fee(express, region)
+    if subtotal > LARGE_ORDER_LIMIT and not express:
+        subtotal -= LARGE_ORDER_BONUS
     return max(subtotal, 0)
 
 
